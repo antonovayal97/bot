@@ -1,0 +1,24 @@
+{
+  "name": "vpn-v",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w @vpn-v/backend",
+    "dev:bot": "npm run dev -w @vpn-v/bot",
+    "dev:admin": "npm run dev -w @vpn-v/admin",
+    "build": "npm run build -w @vpn-v/shared-types && npm run build -w @vpn-v/backend && npm run build -w @vpn-v/bot && npm run build -w @vpn-v/admin",
+    "prisma:migrate": "cd apps/backend && dotenv -e ../../.env -- npx prisma migrate deploy",
+    "prisma:seed": "cd apps/backend && dotenv -e ../../.env -- npx prisma db seed",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

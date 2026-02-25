@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Node" ADD COLUMN "maxUsers" INTEGER NOT NULL DEFAULT 50;
+

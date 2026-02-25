@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  telegramId        String    @unique
+  username          String?
+  subscriptionUntil DateTime?
+  isActive          Boolean   @default(true)
+  referralCode      String    @unique
+  referredBy        String?
+  balance                    Int       @default(0) // бонусные дни
+  balanceRub                 Int       @default(0) // внутренний баланс в рублях для оплаты подписки
+  referralBonusRubOverride   Int?      // переопределение бонуса приглашённому (для этого реферера)
+  referralPercentOverride    Int?      // переопределение % от пополнений приглашённых (для этого реферера)
+  createdAt                  DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  referredByUser       User?          @relation("Referrals", fields: [referredBy], references: [id])
+  referrals            User[]         @relation("Referrals")
+  subscriptions        Subscription[]
+  payments             Payment[]
+  balanceTopUps        BalanceTopUp[]
+  balanceTopUpsRelated BalanceTopUp[] @relation("BalanceTopUpRelatedUser")
+  assignedNodeId       String?
+  assignedNode         Node?          @relation(fields: [assignedNodeId], references: [id])
+}
+
+model BalanceTopUp {
+  id            String   @id @default(cuid())
+  userId        String
+  relatedUserId String?
+  amount        Int // сумма пополнения в рублях
+  source        String // admin | referral_commission | referral_bonus | payment_gateway
+  createdAt     DateTime @default(now())
+
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relatedUser User? @relation("BalanceTopUpRelatedUser", fields: [relatedUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([relatedUserId])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  userId        String
+  nodeId        String // подписка привязана к ноде (стране)
+  plan          String // 1m, 3m, 6m, 12m
+  price         Decimal  @db.Decimal(10, 2)
+  startedAt     DateTime
+  expiresAt     DateTime
+  status        String   @default("active") // active, expired, cancelled
+  expiring24hReminderSentAt DateTime? // когда отправлено напоминание «осталось 24 часа»
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  node     Node               @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  devices  SubscriptionDevice[]
+
+  @@index([userId])
+  @@index([nodeId])
+  @@index([expiresAt])
+  @@index([status])
+}
+
+model SubscriptionDevice {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  configContent  String   @db.Text // WireGuard-конфиг с ноды (один конфиг = одно устройство)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+}
+
+model Node {
+  id            String  @id @default(cuid())
+  name          String
+  country       String
+  ip            String
+  isActive      Boolean @default(true)
+  loadPercent   Int     @default(0)
+  maxUsers      Int     @default(2)
+  sshPort       Int     @default(22)
+  sshUser       String?
+  sshPrivateKey String? @db.Text
+
+  users         User[]
+  subscriptions Subscription[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Decimal  @db.Decimal(10, 2)
+  status    String   @default("pending") // pending, completed, failed, refunded
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AppSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String // JSON
+  updatedAt DateTime @updatedAt
+}

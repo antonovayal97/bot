@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Node" ADD COLUMN "sshPort" INTEGER NOT NULL DEFAULT 22,
+ADD COLUMN "sshUser" TEXT,
+ADD COLUMN "sshPrivateKey" TEXT;
