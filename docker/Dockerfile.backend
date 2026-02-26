@@ -2,11 +2,15 @@ FROM node:20-alpine AS base
 WORKDIR /app
 
 FROM base AS deps
+# Копируем манифесты для кэша
 COPY package.json package-lock.json* ./
 COPY apps/backend/package.json ./apps/backend/
 COPY packages/shared-types/package.json ./packages/shared-types/
-# Устанавливаем зависимости с учётом workspaces; если npm ci недоступен, fallback тоже использует workspace-флаги
-RUN npm ci --workspace=@vpn-v/backend --workspace=@vpn-v/shared-types || npm install --workspace=@vpn-v/backend --workspace=@vpn-v/shared-types
+# Копируем исходники shared-types, чтобы npm мог подтянуть локальный workspace
+COPY packages/shared-types ./packages/shared-types
+# Устанавливаем зависимости с учётом workspaces
+RUN npm ci --workspace=@vpn-v/backend --workspace=@vpn-v/shared-types || \
+    npm install --workspace=@vpn-v/backend --workspace=@vpn-v/shared-types
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
