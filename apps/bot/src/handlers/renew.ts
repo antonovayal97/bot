@@ -205,7 +205,7 @@ export async function handleExtendPlan(ctx: Context, subscriptionId: string, pla
   }
   if (!data.ok) {
     const errText = data.insufficientBalance
-      ? 'Недостаточно средств на балансе. Пополните баланс для продления (у администратора или в личном кабинете).'
+      ? getText('renew_insufficient_balance')
       : (data.error || 'Не удалось продлить подписку.');
     await editOrReply(errText);
     return;
@@ -365,7 +365,7 @@ export async function handleSubscribePlan(ctx: Context, country: string, plan: S
   }
   if (!data.ok) {
     const errText = data.insufficientBalance
-      ? 'Недостаточно средств на балансе. Пополните баланс для оформления подписки (у администратора или в личном кабинете).'
+      ? getText('renew_insufficient_balance')
       : (data.error || 'Не удалось оформить подписку.');
     await editOrReply(errText);
     return;
