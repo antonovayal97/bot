@@ -122,7 +122,7 @@ async function run() {
     const express = await import('express');
     const app = express.default();
     app.use(express.json());
-    app.post(path, (req, res) => {
+    app.post(path, (req: import('express').Request, res: import('express').Response) => {
       bot.handleUpdate(req.body, res).then(() => res.sendStatus(200)).catch(() => res.sendStatus(500));
     });
     const port = process.env.BOT_PORT || 3002;
