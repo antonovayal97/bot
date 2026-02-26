@@ -1,5 +1,7 @@
 FROM node:20-alpine AS base
 WORKDIR /app
+# Prisma для linux-musl требует libssl 1.1, добавляем совместимый пакет
+RUN apk add --no-cache openssl1.1-compat
 
 # Сборка backend + shared-types
 FROM base AS builder
