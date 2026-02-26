@@ -1,20 +1,18 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
-FROM base AS deps
-COPY package.json package-lock.json* ./
-COPY apps/backend/package.json ./apps/backend/
-COPY packages/shared-types/package.json ./packages/shared-types/
-# Устанавливаем все зависимости монорепо (workspaces), чтобы в node_modules попал @vpn-v/shared-types
-RUN npm ci || npm install
-
+# Сборка backend + shared-types
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
 COPY . .
+# Устанавливаем все зависимости монорепо (включая workspaces)
+RUN npm ci || npm install
+# Сборка общих типов и backend
 RUN npm run build -w @vpn-v/shared-types
 RUN cd apps/backend && npx prisma generate
 RUN npm run build -w @vpn-v/backend
 
+# Продакшн-образ
 FROM base AS runner
 ENV NODE_ENV=production
 COPY --from=builder /app/apps/backend/dist ./dist
