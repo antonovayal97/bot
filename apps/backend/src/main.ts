@@ -24,9 +24,15 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+  const corsOrigins = [
+    'http://localhost:3001',
+    ...(process.env.ADMIN_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean) ?? []),
+  ].filter((o, i, a) => a.indexOf(o) === i);
   app.enableCors({
-    origin: process.env.ADMIN_ORIGIN?.split(',') ?? ['http://localhost:3001'],
+    origin: corsOrigins.length ? corsOrigins : ['http://localhost:3001'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
