@@ -343,7 +343,8 @@ export class NodesService {
         return;
       }
       const c = clients[i++];
-      const path = c.config_file.startsWith('/') ? c.config_file : `/root/${c.config_file}`;
+      const filename = c.config_file.replace(/^.*\//, '');
+      const path = `/home/admin/${filename}`;
       conn.exec(`cat ${path}`, (err: Error | undefined, stream) => {
         if (err) {
           callback('Не удалось прочитать конфиг: ' + err.message);
