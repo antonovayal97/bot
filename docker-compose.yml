@@ -48,6 +48,7 @@ services:
       BOT_API_URL: ${BOT_API_URL:-}
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:-http://localhost:3001}
       RIOPAY_API_TOKEN: ${RIOPAY_API_TOKEN:-}
+      RIOPAY_SKIP_IP_VERIFY: ${RIOPAY_SKIP_IP_VERIFY:-}
       RIOPAY_SUCCESS_URL: ${RIOPAY_SUCCESS_URL:-}
     depends_on:
       postgres:

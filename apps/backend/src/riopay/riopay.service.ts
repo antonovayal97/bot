@@ -73,7 +73,7 @@ export class RioPayService {
       amount: String(amountRub),
       externalId,
       externalUserId: user.telegramId,
-      isFeeOnUser: true,
+      isFeeOnUser: false,
       purpose: purpose || `Пополнение баланса VPN`,
       successUrl: successUrl || undefined,
     };
