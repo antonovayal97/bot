@@ -106,9 +106,11 @@ export class RioPayService {
     return { paymentLink: data.paymentLink, orderId: order.id };
   }
 
-  /** Проверить IP отправителя webhook */
+  /** Проверить IP отправителя webhook (поддержка IPv4-mapped: ::ffff:82.146.51.110) */
   verifyWebhookIp(ip: string): boolean {
-    return ip === RIOPAY_WEBHOOK_IP;
+    if (this.config.get<string>('RIOPAY_SKIP_IP_VERIFY') === '1') return true;
+    const normalized = ip.replace(/^::ffff:/i, '');
+    return normalized === RIOPAY_WEBHOOK_IP || ip === RIOPAY_WEBHOOK_IP;
   }
 
   /** Проверить подпись X-Signature (HMAC SHA512 hex) */

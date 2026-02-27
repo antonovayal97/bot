@@ -12,7 +12,7 @@ export class RioPayController {
   async webhook(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, unknown>) {
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
     if (!this.riopay.verifyWebhookIp(ip)) {
-      this.logger.warn(`RioPay webhook: rejected IP ${ip}`);
+      this.logger.warn(`RioPay webhook: rejected IP "${ip}" (expected 82.146.51.110)`);
       return res.status(403).send('Forbidden');
     }
 
@@ -24,7 +24,7 @@ export class RioPayController {
         : JSON.stringify(body);
     const signature = req.headers['x-signature'] as string | undefined;
     if (!this.riopay.verifySignature(rawBody, signature)) {
-      this.logger.warn('RioPay webhook: invalid signature');
+      this.logger.warn(`RioPay webhook: invalid signature (rawBody length=${rawBody?.length}, hasSig=${!!signature})`);
       return res.status(403).send('Invalid signature');
     }
 
