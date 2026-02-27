@@ -628,7 +628,7 @@ export default function NodesPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setRemoveUserNode(null)}>
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-2">Удалить пользователя по IP</h2>
-            <p className="text-slate-400 text-sm mb-3">Нода: {removeUserNode.name}. Будет выполнено: /root/remove_user.sh &lt;IP&gt;</p>
+            <p className="text-slate-400 text-sm mb-3">Нода: {removeUserNode.name}. Будет выполнено: /home/admin/remove_user.sh &lt;IP&gt;</p>
             <form onSubmit={submitRemoveUser}>
               <label className="block text-slate-400 text-sm mb-1">IP клиента (например 10.8.1.15)</label>
               <input

@@ -277,7 +277,7 @@ export class NodesService {
       conn
         .on('ready', () => {
           clearTimeout(timeout);
-          const cmd = count === 1 ? '/root/add_user.sh' : `/root/add_user.sh ${count}`;
+          const cmd = count === 1 ? '/home/admin/add_user.sh' : `/home/admin/add_user.sh ${count}`;
           conn.exec(cmd, (err: Error | undefined, stream) => {
             if (err) {
               conn.end();
@@ -388,7 +388,7 @@ export class NodesService {
       conn
         .on('ready', () => {
           clearTimeout(timeout);
-          const cmd = `/root/remove_user.sh ${valid.join(' ')}`;
+          const cmd = `/home/admin/remove_user.sh ${valid.join(' ')}`;
           conn.exec(cmd, (err: Error | undefined, stream) => {
             if (err) {
               conn.end();
