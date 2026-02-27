@@ -449,49 +449,54 @@ export class SubscriptionsService {
       );
     }
 
-    const delayMs = options?.delayBetweenMs ?? 3000;
     const skipRemove = options?.skipRemoveFromSource ?? false;
     const targetCountryLabel = getCountryName(targetNode.country) || targetNode.country;
 
+    const allIps: string[] = [];
+    if (!skipRemove) {
+      for (const sub of subs) {
+        const ips = sub.devices
+          .map((d) => parseAddressIpFromConfig(d.configContent))
+          .filter((ip): ip is string => !!ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip));
+        if (ips.length !== sub.devices.length) {
+          failed.push({ subscriptionId: sub.id, error: 'Не удалось извлечь IP из конфигов' });
+        } else {
+          allIps.push(...ips);
+        }
+      }
+    }
+    if (failed.length > 0) {
+      return { migrated: 0, failed };
+    }
+
+    const createResult = await this.nodes.createUsers(targetNodeId, totalDevices);
+    if (!createResult.ok || !createResult.clients?.length || createResult.clients.length !== totalDevices) {
+      return { migrated: 0, failed: subs.map((s) => ({ subscriptionId: s.id, error: createResult.error ?? 'Ошибка создания на новом VPS' })) };
+    }
+
+    let clientIndex = 0;
     for (const sub of subs) {
-      const oldDeviceIds: string[] = [];
-      for (const dev of sub.devices) {
-        const clientIp = !skipRemove ? parseAddressIpFromConfig(dev.configContent) : null;
-        if (!skipRemove && (!clientIp || !/^\d{1,3}(\.\d{1,3}){3}$/.test(clientIp))) {
-          failed.push({ subscriptionId: sub.id, error: 'Не удалось извлечь IP из конфига' });
-          continue;
-        }
-
-        const createResult = await this.nodes.createTestUser(targetNodeId);
-        if (!createResult.ok) {
-          failed.push({ subscriptionId: sub.id, error: createResult.error ?? 'Ошибка создания на новом VPS' });
-          continue;
-        }
-
+      for (let i = 0; i < sub.devices.length; i++) {
+        const c = createResult.clients![clientIndex++];
         await this.prisma.subscriptionDevice.create({
-          data: { subscriptionId: sub.id, configContent: createResult.config! },
-        });
-
-        if (!skipRemove && clientIp) {
-          const removeResult = await this.nodes.removeUserByIp(sourceNodeId, clientIp);
-          if (!removeResult.ok) {
-            this.logger.warn(`Миграция подписки ${sub.id}: не удалось удалить на старом VPS: ${removeResult.error}`);
-          }
-        }
-
-        oldDeviceIds.push(dev.id);
-        migrated++;
-        if (delayMs > 0) await sleep(delayMs);
-      }
-      if (oldDeviceIds.length > 0) {
-        await this.prisma.subscriptionDevice.deleteMany({
-          where: { id: { in: oldDeviceIds } },
+          data: { subscriptionId: sub.id, configContent: c.config },
         });
       }
-      await this.prisma.subscription.update({
-        where: { id: sub.id },
-        data: { nodeId: targetNodeId },
-      });
+    }
+
+    if (!skipRemove && allIps.length > 0) {
+      const removeResult = await this.nodes.removeUsersByIp(sourceNodeId, allIps);
+      if (!removeResult.ok) {
+        this.logger.warn(`migrateNodeToNode: не удалось удалить на старом VPS: ${removeResult.error}`);
+      }
+    }
+
+    for (const sub of subs) {
+      const oldDeviceIds = sub.devices.map((d) => d.id);
+      await this.prisma.subscriptionDevice.deleteMany({ where: { id: { in: oldDeviceIds } } });
+      await this.prisma.subscription.update({ where: { id: sub.id }, data: { nodeId: targetNodeId } });
+      migrated += sub.devices.length;
+
       const telegramId = sub.user?.telegramId ?? (await this.prisma.user.findUnique({
         where: { id: sub.userId },
         select: { telegramId: true },
@@ -547,29 +552,30 @@ export class SubscriptionsService {
       throw new BadRequestException(`Нет свободных слотов на целевой ноде (нужно ${sub.devices.length}, свободно ${maxUsers - targetDeviceCount})`);
     }
 
-    const oldDeviceIds: string[] = [];
-    for (const dev of sub.devices) {
-      const clientIp = parseAddressIpFromConfig(dev.configContent);
-      if (!clientIp || !/^\d{1,3}(\.\d{1,3}){3}$/.test(clientIp)) {
-        throw new BadRequestException('Не удалось извлечь IP из конфига устройства');
-      }
-
-      const createResult = await this.nodes.createTestUser(targetNodeId);
-      if (!createResult.ok) {
-        throw new BadRequestException(createResult.error ?? 'Ошибка создания на новом VPS');
-      }
-
-      await this.prisma.subscriptionDevice.create({
-        data: { subscriptionId, configContent: createResult.config! },
-      });
-
-      const removeResult = await this.nodes.removeUserByIp(sourceNodeId, clientIp);
-      if (!removeResult.ok) {
-        this.logger.warn(`migrateSubscription: не удалось удалить на старом VPS: ${removeResult.error}`);
-      }
-      oldDeviceIds.push(dev.id);
+    const ips = sub.devices
+      .map((d) => parseAddressIpFromConfig(d.configContent))
+      .filter((ip): ip is string => !!ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip));
+    if (ips.length !== sub.devices.length) {
+      throw new BadRequestException('Не удалось извлечь IP из конфигов устройств');
     }
 
+    const createResult = await this.nodes.createUsers(targetNodeId, sub.devices.length);
+    if (!createResult.ok || !createResult.clients?.length) {
+      throw new BadRequestException(createResult.error ?? 'Ошибка создания на новом VPS');
+    }
+
+    for (const c of createResult.clients) {
+      await this.prisma.subscriptionDevice.create({
+        data: { subscriptionId, configContent: c.config },
+      });
+    }
+
+    const removeResult = await this.nodes.removeUsersByIp(sourceNodeId, ips);
+    if (!removeResult.ok) {
+      this.logger.warn(`migrateSubscription: не удалось удалить на старом VPS: ${removeResult.error}`);
+    }
+
+    const oldDeviceIds = sub.devices.map((d) => d.id);
     await this.prisma.subscriptionDevice.deleteMany({
       where: { id: { in: oldDeviceIds } },
     });
