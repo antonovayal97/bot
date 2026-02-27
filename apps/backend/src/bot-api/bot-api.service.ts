@@ -138,12 +138,11 @@ export class BotApiService {
     try {
       const { id: subscriptionId, expiresAt } = await this.subscriptions.createFromBalance(user.id, plan, price, country, devicesToCreate);
       const sub = await this.subscriptions.getById(subscriptionId);
-      if (sub && sub.nodeId) {
-        const existingCount = sub.devices?.length ?? 0;
-        for (let i = 0; i < devicesToCreate - existingCount; i++) {
-          const result = await this.nodes.createTestUser(sub.nodeId);
-          if (result.ok && result.config) {
-            await this.subscriptions.setConfigContent(subscriptionId, result.config);
+      if (sub && sub.nodeId && devicesToCreate > 0) {
+        const result = await this.nodes.createUsers(sub.nodeId, devicesToCreate);
+        if (result.ok && result.clients?.length) {
+          for (const c of result.clients) {
+            await this.subscriptions.setConfigContent(subscriptionId, c.config);
           }
         }
       }

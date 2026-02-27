@@ -206,14 +206,66 @@ export class NodesService {
     });
   }
 
+  private parseAddUserOutput(output: string): { status: string; message?: string; clients?: { ip: string; config_file: string }[] } | null {
+    try {
+      const parsed = JSON.parse(output.trim()) as { status: string; message?: string; clients?: { ip: string; config_file: string }[] };
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private parseRemoveUserOutput(output: string): { status: string; message?: string; removed?: string[]; removed_count?: number } | null {
+    try {
+      const parsed = JSON.parse(output.trim()) as { status: string; message?: string; removed?: string[]; removed_count?: number };
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private mapAddUserError(message?: string): string {
+    if (!message) return 'Ошибка скрипта add_user.sh';
+    if (message === 'container_not_running') return 'Контейнер VPN не запущен';
+    if (message === 'no_free_ip') return 'Нет свободных IP-адресов';
+    if (message.startsWith('requested_') && message.includes('_but_only_')) return 'Запрошено больше клиентов, чем доступно';
+    return message;
+  }
+
+  private mapRemoveUserError(message?: string): string {
+    switch (message) {
+      case 'container_not_running':
+        return 'Контейнер VPN не запущен';
+      default:
+        return message ?? 'Ошибка скрипта remove_user.sh';
+    }
+  }
+
   async createTestUser(
     nodeId: string,
   ): Promise<{ ok: boolean; config?: string; filename?: string; error?: string }> {
+    const result = await this.createUsers(nodeId, 1);
+    if (!result.ok || !result.clients?.length) {
+      return { ok: false, error: result.error ?? 'Не удалось создать пользователя' };
+    }
+    return {
+      ok: true,
+      config: result.clients[0].config,
+      filename: result.clients[0].config_file,
+    };
+  }
+
+  /** Создать N пользователей на ноде. add_user.sh N — JSON API. */
+  async createUsers(
+    nodeId: string,
+    count: number,
+  ): Promise<{ ok: boolean; clients?: { ip: string; config: string; config_file: string }[]; error?: string }> {
     const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
     if (!node) return { ok: false, error: 'Нода не найдена' };
     if (!node.sshUser || !node.sshPrivateKey) {
       return { ok: false, error: 'Укажите пользователя и приватный ключ SSH' };
     }
+    if (count < 1 || count > 100) return { ok: false, error: 'Количество от 1 до 100' };
 
     return new Promise((resolve) => {
       const conn = new Client();
@@ -225,54 +277,41 @@ export class NodesService {
       conn
         .on('ready', () => {
           clearTimeout(timeout);
-
-          conn.exec('/root/add_user.sh', (err: Error | undefined, stream) => {
+          const cmd = count === 1 ? '/root/add_user.sh' : `/root/add_user.sh ${count}`;
+          conn.exec(cmd, (err: Error | undefined, stream) => {
             if (err) {
               conn.end();
               return resolve({ ok: false, error: err.message || 'Не удалось запустить скрипт' });
             }
 
             let output = '';
-            let filename: string | null = null;
-
             stream.on('data', (chunk: Buffer) => {
-              const text = chunk.toString('utf8');
-              output += text;
-              const m = text.match(/Файл создан:\s*(\S+)/);
-              if (!filename && m) filename = m[1];
+              output += chunk.toString('utf8');
             });
-
             stream.stderr?.on('data', (chunk: Buffer) => {
               output += chunk.toString('utf8');
-              const m = chunk.toString('utf8').match(/Файл создан:\s*(\S+)/);
-              if (!filename && m) filename = m[1];
             });
 
             stream.on('close', () => {
-              if (!filename) {
+              const parsed = this.parseAddUserOutput(output);
+              if (!parsed) {
                 conn.end();
-                return resolve({
-                  ok: false,
-                  error: 'Скрипт не вернул имя файла. Вывод: ' + (output.slice(-500) || '—'),
-                });
+                return resolve({ ok: false, error: 'Скрипт вернул невалидный JSON: ' + (output.slice(-300) || '—') });
+              }
+              if (parsed.status === 'error') {
+                conn.end();
+                return resolve({ ok: false, error: this.mapAddUserError(parsed.message) });
+              }
+              const clients = parsed.clients ?? [];
+              if (clients.length === 0) {
+                conn.end();
+                return resolve({ ok: false, error: 'Скрипт не вернул созданных клиентов' });
               }
 
-              const path = filename.startsWith('/') ? filename : `/root/${filename}`;
-
-              conn.exec(`cat ${path}`, (err2: Error | undefined, stream2) => {
-                if (err2) {
-                  conn.end();
-                  return resolve({ ok: false, error: 'Не удалось прочитать конфиг: ' + err2.message });
-                }
-
-                let config = '';
-                stream2.on('data', (chunk: Buffer) => {
-                  config += chunk.toString('utf8');
-                });
-                stream2.on('close', () => {
-                  conn.end();
-                  resolve({ ok: true, config, filename: filename ?? undefined });
-                });
+              this.catConfigFiles(conn, clients, (err2, results) => {
+                conn.end();
+                if (err2) return resolve({ ok: false, error: err2 });
+                resolve({ ok: true, clients: results ?? [] });
               });
             });
           });
@@ -291,14 +330,51 @@ export class NodesService {
     });
   }
 
+  private catConfigFiles(
+    conn: Client,
+    clients: { ip: string; config_file: string }[],
+    callback: (err: string | null, results?: { ip: string; config: string; config_file: string }[]) => void,
+  ): void {
+    const results: { ip: string; config: string; config_file: string }[] = [];
+    let i = 0;
+    const next = () => {
+      if (i >= clients.length) {
+        callback(null, results);
+        return;
+      }
+      const c = clients[i++];
+      const path = c.config_file.startsWith('/') ? c.config_file : `/root/${c.config_file}`;
+      conn.exec(`cat ${path}`, (err: Error | undefined, stream) => {
+        if (err) {
+          callback('Не удалось прочитать конфиг: ' + err.message);
+          return;
+        }
+        let config = '';
+        stream.on('data', (chunk: Buffer) => {
+          config += chunk.toString('utf8');
+        });
+        stream.on('close', () => {
+          results.push({ ip: c.ip, config, config_file: c.config_file });
+          next();
+        });
+      });
+    };
+    next();
+  }
+
   async removeUserByIp(nodeId: string, clientIp: string): Promise<{ ok: boolean; error?: string }> {
+    return this.removeUsersByIp(nodeId, [clientIp.trim()]);
+  }
+
+  /** Удалить несколько пользователей по IP. remove_user.sh ip1 ip2 ... — JSON API. */
+  async removeUsersByIp(nodeId: string, ips: string[]): Promise<{ ok: boolean; removed?: string[]; error?: string }> {
     const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
     if (!node) return { ok: false, error: 'Нода не найдена' };
     if (!node.sshUser || !node.sshPrivateKey) {
       return { ok: false, error: 'Укажите пользователя и приватный ключ SSH' };
     }
-    const ip = clientIp.trim();
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    const valid = ips.filter((ip) => /^\d{1,3}(\.\d{1,3}){3}$/.test(ip.trim()));
+    if (valid.length === 0) {
       return { ok: false, error: 'Неверный формат IP (ожидается например 10.8.1.15)' };
     }
 
@@ -312,7 +388,8 @@ export class NodesService {
       conn
         .on('ready', () => {
           clearTimeout(timeout);
-          conn.exec(`/root/remove_user.sh ${ip}`, (err: Error | undefined, stream) => {
+          const cmd = `/root/remove_user.sh ${valid.join(' ')}`;
+          conn.exec(cmd, (err: Error | undefined, stream) => {
             if (err) {
               conn.end();
               return resolve({ ok: false, error: err.message || 'Не удалось запустить скрипт' });
@@ -326,16 +403,19 @@ export class NodesService {
               output += chunk.toString('utf8');
             });
 
-            stream.on('close', (code: number) => {
+            stream.on('close', () => {
               conn.end();
-              if (code === 0) {
-                resolve({ ok: true });
-              } else {
-                resolve({
+              const parsed = this.parseRemoveUserOutput(output);
+              if (!parsed) {
+                return resolve({
                   ok: false,
-                  error: output.trim() ? output.slice(-300) : `Код выхода: ${code}`,
+                  error: 'Скрипт вернул невалидный JSON: ' + (output.slice(-300) || '—'),
                 });
               }
+              if (parsed.status === 'error') {
+                return resolve({ ok: false, error: this.mapRemoveUserError(parsed.message) });
+              }
+              resolve({ ok: true, removed: parsed.removed ?? [] });
             });
           });
         })

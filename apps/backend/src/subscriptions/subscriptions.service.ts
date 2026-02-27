@@ -356,13 +356,13 @@ export class SubscriptionsService {
     });
     if (!sub) throw new BadRequestException('Подписка не найдена');
     if (sub.nodeId && sub.devices.length > 0) {
-      for (const dev of sub.devices) {
-        const clientIp = parseAddressIpFromConfig(dev.configContent);
-        if (clientIp && /^\d{1,3}(\.\d{1,3}){3}$/.test(clientIp)) {
-          const result = await this.nodes.removeUserByIp(sub.nodeId, clientIp);
-          if (!result.ok) {
-            this.logger.warn(`deleteConfigContent: не удалось удалить устройство на VPS: ${result.error}`);
-          }
+      const ips = sub.devices
+        .map((d) => parseAddressIpFromConfig(d.configContent))
+        .filter((ip): ip is string => !!ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip));
+      if (ips.length > 0) {
+        const result = await this.nodes.removeUsersByIp(sub.nodeId, ips);
+        if (!result.ok) {
+          this.logger.warn(`deleteConfigContent: не удалось удалить устройства на VPS: ${result.error}`);
         }
       }
     }
