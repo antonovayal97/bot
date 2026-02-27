@@ -8,6 +8,7 @@ import { NodesModule } from '../nodes/nodes.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SettingsModule } from '../settings/settings.module';
 import { BotTextsModule } from '../bot-texts/bot-texts.module';
+import { RioPayModule } from '../riopay/riopay.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BotTextsModule } from '../bot-texts/bot-texts.module';
     PaymentsModule,
     SettingsModule,
     BotTextsModule,
+    RioPayModule,
   ],
   controllers: [BotApiController],
   providers: [BotApiService],

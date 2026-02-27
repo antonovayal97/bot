@@ -92,4 +92,16 @@ export class BotApiController {
     if (!stats) return { error: 'User not found' };
     return stats;
   }
+
+  @Post('topup')
+  @UseGuards(BotApiKeyGuard)
+  async createTopupOrder(@Body() body: { telegramId: string; amount: number }) {
+    return this.botApi.createTopupOrder(body.telegramId, body.amount);
+  }
+
+  @Get('topup/enabled')
+  @UseGuards(BotApiKeyGuard)
+  async topupEnabled() {
+    return { enabled: this.botApi.isTopupEnabled() };
+  }
 }

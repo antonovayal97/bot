@@ -18,6 +18,7 @@ import { WipeModule } from './wipe/wipe.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { BroadcastModule } from './broadcast/broadcast.module';
 import { BotTextsModule } from './bot-texts/bot-texts.module';
+import { RioPayModule } from './riopay/riopay.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { BotTextsModule } from './bot-texts/bot-texts.module';
     WipeModule,
     BroadcastModule,
     BotTextsModule,
+    RioPayModule,
   ],
 })
 export class AppModule {}

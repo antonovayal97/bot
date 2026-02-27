@@ -28,6 +28,7 @@ model User {
   payments             Payment[]
   balanceTopUps        BalanceTopUp[]
   balanceTopUpsRelated BalanceTopUp[] @relation("BalanceTopUpRelatedUser")
+  riopayOrders         RioPayOrder[]
   assignedNodeId       String?
   assignedNode         Node?          @relation(fields: [assignedNodeId], references: [id])
 }
@@ -106,6 +107,22 @@ model Payment {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model RioPayOrder {
+  id            String   @id @default(cuid())
+  userId        String
+  externalId    String   @unique // наш ID для RioPay (externalId в запросе)
+  riopayOrderId String?  // ID заказа от RioPay
+  amount        Decimal  @db.Decimal(10, 2)
+  status        String   @default("pending") // pending, completed, failed, expired
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([externalId])
+  @@index([userId])
 }
 
 model AppSettings {

@@ -5,6 +5,7 @@ import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { NodesService } from '../nodes/nodes.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SettingsService } from '../settings/settings.service';
+import { RioPayService } from '../riopay/riopay.service';
 import type { SubscriptionPlan } from '@vpn-v/shared-types';
 import { SUBSCRIPTION_PLAN_DAYS } from '@vpn-v/shared-types';
 
@@ -16,6 +17,7 @@ export class BotApiService {
     private nodes: NodesService,
     private payments: PaymentsService,
     private settings: SettingsService,
+    private riopay: RioPayService,
   ) {}
 
   async registerUser(telegramId: string, username?: string) {
@@ -208,5 +210,26 @@ export class BotApiService {
       referralBonusRub,
       inviteLink: undefined,
     };
+  }
+
+  isTopupEnabled(): boolean {
+    return this.riopay.isEnabled();
+  }
+
+  async createTopupOrder(telegramId: string, amount: number): Promise<{ ok: boolean; paymentLink?: string; orderId?: string; error?: string }> {
+    if (!this.riopay.isEnabled()) {
+      return { ok: false, error: 'Пополнение через платёжную систему временно недоступно' };
+    }
+    const user = await this.users.findByTelegramId(telegramId);
+    if (!user) {
+      return { ok: false, error: 'Пользователь не найден. Отправьте /start' };
+    }
+    try {
+      const { paymentLink, orderId } = await this.riopay.createOrder(user.id, Math.round(amount));
+      return { ok: true, paymentLink, orderId };
+    } catch (e) {
+      const msg = e instanceof BadRequestException ? e.message : 'Не удалось создать платёж';
+      return { ok: false, error: typeof msg === 'string' ? msg : String(msg) };
+    }
   }
 }

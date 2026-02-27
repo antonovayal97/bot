@@ -12,6 +12,8 @@ import {
   handleExtendSub,
   handleExtendPlan,
   handleSubscribePlan,
+  handleTopup,
+  handleTopupAmount,
 } from './handlers/renew';
 import { handleReferralCommand } from './handlers/referral';
 import { handleHelp } from './handlers/help';
@@ -47,6 +49,11 @@ bot.action(/^config_qr_(.+)$/, (ctx) => {
   return handleConfigQr(ctx, nodeId);
 });
 bot.action('renew', handleRenew);
+bot.action('topup', handleTopup);
+bot.action(/^topup_amount_(\d+)$/, (ctx) => {
+  const amount = parseInt(ctx.match[1], 10);
+  return handleTopupAmount(ctx, amount);
+});
 bot.action('renew_buy', handleRenewBuy);
 bot.action('renew_extend', handleRenewExtend);
 bot.action(/^renew_country_([^_]+)$/, (ctx) => {

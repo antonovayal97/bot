@@ -18,19 +18,83 @@ type CountryOption = { country: string; nodesAvailable: number };
 export async function handleRenew(ctx: Context) {
   if ('callback_query' in ctx.update) await ctx.answerCbQuery();
   const telegramId = String(ctx.from?.id);
-  const userRes = await api(`/user/${telegramId}`);
+  const [userRes, topupRes] = await Promise.all([
+    api(`/user/${telegramId}`),
+    api('/topup/enabled'),
+  ]);
   const balanceRub = userRes.ok
     ? ((await userRes.json()) as { balanceRub?: number }).balanceRub ?? 0
     : 0;
+  const topupEnabled = topupRes.ok && ((await topupRes.json()) as { enabled?: boolean }).enabled === true;
 
   const buttons = [
     [{ text: '🛒 Купить', callback_data: 'renew_buy' }],
     [{ text: '🔄 Продлить', callback_data: 'renew_extend' }],
   ];
+  if (topupEnabled) {
+    buttons.push([{ text: '💳 Пополнить баланс', callback_data: 'topup' }]);
+  }
 
   await ctx.reply(
     getText('renew_choose_action', { balanceRub: String(balanceRub) }),
     { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } },
+  );
+}
+
+const TOPUP_AMOUNTS = [100, 300, 500, 1000];
+
+export async function handleTopup(ctx: Context) {
+  if ('callback_query' in ctx.update) await ctx.answerCbQuery();
+  const buttons = TOPUP_AMOUNTS.map((a) => [{ text: `${a} ₽`, callback_data: `topup_amount_${a}` }]);
+  await ctx.reply(getText('topup_choose_amount'), {
+    reply_markup: { inline_keyboard: buttons },
+  });
+}
+
+export async function handleTopupAmount(ctx: Context, amount: number) {
+  if ('callback_query' in ctx.update) await ctx.answerCbQuery();
+  const telegramId = String(ctx.from?.id);
+  const chatId = ctx.chat?.id;
+
+  if (chatId) await ctx.telegram.sendChatAction(chatId, 'typing');
+  const loadingMsg = await ctx.reply(getText('topup_creating'));
+
+  const res = await api('/topup', {
+    method: 'POST',
+    body: JSON.stringify({ telegramId, amount }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    paymentLink?: string;
+    error?: string;
+  };
+
+  const editOrReply = async (text: string, parseMode?: 'HTML') => {
+    if (!chatId) {
+      await ctx.reply(text, parseMode ? { parse_mode: parseMode } : {});
+      return;
+    }
+    try {
+      await ctx.telegram.editMessageText(chatId, loadingMsg.message_id, undefined, text, {
+        parse_mode: parseMode,
+      });
+    } catch {
+      await ctx.reply(text, parseMode ? { parse_mode: parseMode } : {});
+    }
+  };
+
+  if (!res.ok || !data.ok) {
+    await editOrReply(data.error || getText('topup_error'));
+    return;
+  }
+  const link = data.paymentLink;
+  if (!link) {
+    await editOrReply(getText('topup_error'));
+    return;
+  }
+  await editOrReply(
+    `${getText('topup_success')}\n\n<a href="${link}">Перейти к оплате →</a>`,
+    'HTML',
   );
 }
 

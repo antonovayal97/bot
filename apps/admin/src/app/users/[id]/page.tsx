@@ -23,6 +23,8 @@ const BALANCE_TOP_UP_SOURCE_LABELS: Record<string, string> = {
   referral_commission: 'От реферала',
   referral_bonus: 'Реферальный бонус',
   payment_gateway: 'Платёжный шлюз',
+  riopay: 'RioPay',
+  welcome_bonus: 'Приветственный бонус',
 };
 
 type UserDetail = {
