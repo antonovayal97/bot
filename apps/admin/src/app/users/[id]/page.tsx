@@ -509,16 +509,15 @@ export default function UserDetailPage() {
                             {migratingId === s.id ? '…' : 'Миграция'}
                           </button>
                         )}
-                        {hasDevices && (
-                          <button
-                            type="button"
-                            onClick={() => { setDeleteModalSub({ id: s.id, nodeName: nodeLabel }); setDeleteAdminMessage(''); }}
-                            disabled={deletingConfigId === s.id}
-                            className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white text-sm disabled:opacity-50"
-                          >
-                            {deletingConfigId === s.id ? '…' : 'Удалить подписку'}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => { setDeleteModalSub({ id: s.id, nodeName: nodeLabel }); setDeleteAdminMessage(''); }}
+                          disabled={deletingConfigId === s.id}
+                          className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white text-sm disabled:opacity-50"
+                          title={!hasDevices ? 'Удалить подписку без устройств (создана с ошибками VPS)' : 'Удалить подписку'}
+                        >
+                          {deletingConfigId === s.id ? '…' : 'Удалить'}
+                        </button>
                       </div>
                     ) : (
                       '—'
