@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { config } from './config';
-import { loadTexts } from './texts';
+import { loadTexts, getText } from './texts';
 import { handleStart, showMainMenu } from './handlers/start';
 import { handleMyConfigs, handleConfigNode, handleConfigQr } from './handlers/configs';
 import {
@@ -15,6 +15,7 @@ import {
   handleTopup,
   handleTopupAmount,
   handleTopupCustom,
+  handleTopupCancel,
   validateTopupAmount,
 } from './handlers/renew';
 import { getAndClearWaiting } from './state';
@@ -54,6 +55,7 @@ bot.action(/^config_qr_(.+)$/, (ctx) => {
 bot.action('renew', handleRenew);
 bot.action('topup', handleTopup);
 bot.action('topup_custom', handleTopupCustom);
+bot.action('topup_cancel', handleTopupCancel);
 bot.action(/^topup_amount_(\d+)$/, (ctx) => {
   const amount = parseInt(ctx.match[1], 10);
   return handleTopupAmount(ctx, amount);
@@ -98,6 +100,10 @@ bot.on('message', async (ctx) => {
   const telegramId = String(ctx.from?.id);
   const waiting = getAndClearWaiting(telegramId);
   if (waiting === 'topup_amount') {
+    const cancelled = /^(отмена|cancel|выход)$/i.test(text.trim());
+    if (cancelled) {
+      return ctx.reply(getText('topup_cancelled'));
+    }
     const amount = parseInt(text.replace(/\s/g, ''), 10);
     const valid = validateTopupAmount(amount);
     if (!valid.ok) {

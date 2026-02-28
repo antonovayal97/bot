@@ -52,8 +52,8 @@ export class RioPayService {
     const token = this.getApiToken();
     if (!token) throw new BadRequestException('Платёжная система не настроена');
 
-    if (amountRub < 50 || amountRub > 100000) {
-      throw new BadRequestException('Сумма от 50 до 100 000 ₽');
+    if (amountRub < 50 || amountRub > 5000) {
+      throw new BadRequestException('Сумма от 50 до 5000 ₽');
     }
 
     const user = await this.users.findById(userId);

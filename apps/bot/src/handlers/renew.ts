@@ -61,7 +61,19 @@ export async function handleTopupCustom(ctx: Context) {
   const { setWaiting } = await import('../state');
   const telegramId = String(ctx.from?.id);
   setWaiting(telegramId, 'topup_amount');
-  await ctx.reply(getText('topup_enter_amount'));
+  await ctx.reply(getText('topup_enter_amount'), {
+    reply_markup: {
+      inline_keyboard: [[{ text: '❌ Отмена', callback_data: 'topup_cancel' }]],
+    },
+  });
+}
+
+export async function handleTopupCancel(ctx: Context) {
+  if ('callback_query' in ctx.update) await ctx.answerCbQuery();
+  const { getAndClearWaiting } = await import('../state');
+  const telegramId = String(ctx.from?.id);
+  getAndClearWaiting(telegramId);
+  await ctx.reply(getText('topup_cancelled'));
 }
 
 export function validateTopupAmount(amount: number): { ok: boolean; error?: string } {
