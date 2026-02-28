@@ -103,7 +103,7 @@ bot.on('message', async (ctx) => {
     if (!valid.ok) {
       const { setWaiting } = await import('./state');
       setWaiting(telegramId, 'topup_amount');
-      return ctx.reply(valid.error);
+      return ctx.reply(valid.error ?? 'Сумма должна быть от 50 до 5000 ₽. Введите число:');
     }
     return handleTopupAmount(ctx, amount);
   }
