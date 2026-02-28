@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 const RIOPAY_API = 'https://api.riopay.online/v1';
@@ -35,6 +36,7 @@ export class RioPayService {
     private prisma: PrismaService,
     private users: UsersService,
     private config: ConfigService,
+    private telegram: TelegramService,
   ) {}
 
   private getApiToken(): string | null {
@@ -176,6 +178,16 @@ export class RioPayService {
       where: { id: order.id },
       data: { status: 'completed', completedAt: new Date(), riopayOrderId: payload.id ?? order.riopayOrderId },
     });
+
+    const telegramId = order.user?.telegramId;
+    if (telegramId) {
+      const text = `✅ <b>Баланс пополнен</b>\n\nНа ваш баланс зачислено ${amountRub} ₽.`;
+      try {
+        await this.telegram.sendMessage(String(telegramId), text);
+      } catch (err) {
+        this.logger.warn(`RioPay webhook: failed to notify user ${telegramId}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
 
     this.logger.log(`RioPay webhook: order ${externalId} completed, +${amountRub} RUB for user ${order.userId}`);
   }
