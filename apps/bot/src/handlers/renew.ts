@@ -42,13 +42,33 @@ export async function handleRenew(ctx: Context) {
 }
 
 const TOPUP_AMOUNTS = [100, 300, 500, 1000];
+const TOPUP_MIN = 50;
+const TOPUP_MAX = 5000;
 
 export async function handleTopup(ctx: Context) {
   if ('callback_query' in ctx.update) await ctx.answerCbQuery();
-  const buttons = TOPUP_AMOUNTS.map((a) => [{ text: `${a} ₽`, callback_data: `topup_amount_${a}` }]);
+  const buttons = [
+    ...TOPUP_AMOUNTS.map((a) => [{ text: `${a} ₽`, callback_data: `topup_amount_${a}` }]),
+    [{ text: '✏️ Другая сумма', callback_data: 'topup_custom' }],
+  ];
   await ctx.reply(getText('topup_choose_amount'), {
     reply_markup: { inline_keyboard: buttons },
   });
+}
+
+export async function handleTopupCustom(ctx: Context) {
+  if ('callback_query' in ctx.update) await ctx.answerCbQuery();
+  const { setWaiting } = await import('../state');
+  const telegramId = String(ctx.from?.id);
+  setWaiting(telegramId, 'topup_amount');
+  await ctx.reply(getText('topup_enter_amount'));
+}
+
+export function validateTopupAmount(amount: number): { ok: boolean; error?: string } {
+  if (!Number.isFinite(amount) || amount < TOPUP_MIN || amount > TOPUP_MAX) {
+    return { ok: false, error: getText('topup_amount_invalid') };
+  }
+  return { ok: true };
 }
 
 export async function handleTopupAmount(ctx: Context, amount: number) {

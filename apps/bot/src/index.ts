@@ -14,7 +14,10 @@ import {
   handleSubscribePlan,
   handleTopup,
   handleTopupAmount,
+  handleTopupCustom,
+  validateTopupAmount,
 } from './handlers/renew';
+import { getAndClearWaiting } from './state';
 import { handleReferralCommand } from './handlers/referral';
 import { handleHelp } from './handlers/help';
 import { handleReferrals } from './handlers/referrals';
@@ -50,6 +53,7 @@ bot.action(/^config_qr_(.+)$/, (ctx) => {
 });
 bot.action('renew', handleRenew);
 bot.action('topup', handleTopup);
+bot.action('topup_custom', handleTopupCustom);
 bot.action(/^topup_amount_(\d+)$/, (ctx) => {
   const amount = parseInt(ctx.match[1], 10);
   return handleTopupAmount(ctx, amount);
@@ -91,6 +95,18 @@ bot.command('status', showMainMenu);
 bot.on('message', async (ctx) => {
   const text = (ctx.message as { text?: string })?.text;
   if (!text || text.startsWith('/')) return;
+  const telegramId = String(ctx.from?.id);
+  const waiting = getAndClearWaiting(telegramId);
+  if (waiting === 'topup_amount') {
+    const amount = parseInt(text.replace(/\s/g, ''), 10);
+    const valid = validateTopupAmount(amount);
+    if (!valid.ok) {
+      const { setWaiting } = await import('./state');
+      setWaiting(telegramId, 'topup_amount');
+      return ctx.reply(valid.error);
+    }
+    return handleTopupAmount(ctx, amount);
+  }
   switch (text) {
     case REPLY_KEYS.MENU:
       return showMainMenu(ctx);
