@@ -52,12 +52,13 @@ export class MaxelPayService {
     return this.config.get<string>('MAXELPAY_API_KEY') ?? null;
   }
 
+  /** Секрет для проверки webhook. Если не задан — используется API_KEY (MaxelPay может выдавать один ключ на оба). */
   private getSecretKey(): string | null {
-    return this.config.get<string>('MAXELPAY_SECRET_KEY') ?? null;
+    return this.config.get<string>('MAXELPAY_SECRET_KEY') ?? this.getApiKey();
   }
 
   isEnabled(): boolean {
-    return !!this.getApiKey() && !!this.getSecretKey();
+    return !!this.getApiKey();
   }
 
   /** Создать платёжную сессию для пополнения баланса */
