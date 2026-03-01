@@ -95,14 +95,13 @@ export class BotApiController {
 
   @Post('topup')
   @UseGuards(BotApiKeyGuard)
-  async createTopupOrder(@Body() body: { telegramId: string; amount: number; gateway?: 'riopay' | 'maxelpay' }) {
-    return this.botApi.createTopupOrder(body.telegramId, body.amount, body.gateway);
+  async createTopupOrder(@Body() body: { telegramId: string; amount: number }) {
+    return this.botApi.createTopupOrder(body.telegramId, body.amount);
   }
 
   @Get('topup/enabled')
   @UseGuards(BotApiKeyGuard)
   async topupEnabled() {
-    const gateways = this.botApi.getTopupGateways();
-    return { enabled: gateways.length > 0, gateways };
+    return { enabled: this.botApi.isTopupEnabled() };
   }
 }

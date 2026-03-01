@@ -9,8 +9,6 @@ import { PaymentsModule } from '../payments/payments.module';
 import { SettingsModule } from '../settings/settings.module';
 import { BotTextsModule } from '../bot-texts/bot-texts.module';
 import { RioPayModule } from '../riopay/riopay.module';
-import { MaxelPayModule } from '../maxelpay/maxelpay.module';
-
 @Module({
   imports: [
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 400 }]),
@@ -21,7 +19,6 @@ import { MaxelPayModule } from '../maxelpay/maxelpay.module';
     SettingsModule,
     BotTextsModule,
     RioPayModule,
-    MaxelPayModule,
   ],
   controllers: [BotApiController],
   providers: [BotApiService],

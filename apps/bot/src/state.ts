@@ -1,7 +1,7 @@
 /** Простой in-memory стейт для ожидания ввода (без сессий) */
 type WaitingState = 'topup_amount';
 
-const pending: Map<string, { state: WaitingState; gateway?: 'riopay' | 'maxelpay'; since: number }> = new Map();
+const pending: Map<string, { state: WaitingState; since: number }> = new Map();
 const TTL_MS = 5 * 60 * 1000; // 5 минут
 
 function cleanup() {
@@ -11,16 +11,16 @@ function cleanup() {
   }
 }
 
-export function setWaiting(telegramId: string, state: WaitingState, gateway?: 'riopay' | 'maxelpay'): void {
-  pending.set(telegramId, { state, gateway, since: Date.now() });
+export function setWaiting(telegramId: string, state: WaitingState): void {
+  pending.set(telegramId, { state, since: Date.now() });
   if (pending.size > 1000) cleanup();
 }
 
-export function getAndClearWaiting(telegramId: string): { state: WaitingState; gateway?: 'riopay' | 'maxelpay' } | null {
+export function getAndClearWaiting(telegramId: string): { state: WaitingState } | null {
   const v = pending.get(telegramId);
   pending.delete(telegramId);
   if (!v) return null;
-  return { state: v.state, gateway: v.gateway };
+  return { state: v.state };
 }
 
 export function hasWaiting(telegramId: string): boolean {

@@ -36,7 +36,6 @@ export const DEFAULT_BOT_TEXTS: Record<string, string> = {
   renew_error_subscribe: 'Ошибка оформления подписки.',
   renew_insufficient_balance:
     'Недостаточно средств на балансе. Пополните баланс (кнопка «Пополнить» или у администратора).',
-  topup_choose_method: 'Выберите способ оплаты:',
   topup_choose_amount: 'Выберите сумму пополнения (₽):',
   topup_enter_amount: 'Введите сумму в рублях (от 50 до 5000). Для отмены напишите «отмена» или нажмите кнопку ниже:',
   topup_amount_invalid: 'Сумма должна быть от 50 до 5000 ₽. Введите число или «отмена» для выхода:',

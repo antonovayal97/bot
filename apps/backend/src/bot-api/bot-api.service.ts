@@ -6,7 +6,6 @@ import { NodesService } from '../nodes/nodes.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SettingsService } from '../settings/settings.service';
 import { RioPayService } from '../riopay/riopay.service';
-import { MaxelPayService } from '../maxelpay/maxelpay.service';
 import type { SubscriptionPlan } from '@vpn-v/shared-types';
 import { SUBSCRIPTION_PLAN_DAYS } from '@vpn-v/shared-types';
 
@@ -19,7 +18,6 @@ export class BotApiService {
     private payments: PaymentsService,
     private settings: SettingsService,
     private riopay: RioPayService,
-    private maxelpay: MaxelPayService,
   ) {}
 
   async registerUser(telegramId: string, username?: string) {
@@ -215,31 +213,11 @@ export class BotApiService {
   }
 
   isTopupEnabled(): boolean {
-    return this.maxelpay.isEnabled() || this.riopay.isEnabled();
+    return this.riopay.isEnabled();
   }
 
-  getTopupGateways(): ('riopay' | 'maxelpay')[] {
-    const out: ('riopay' | 'maxelpay')[] = [];
-    if (this.riopay.isEnabled()) out.push('riopay');
-    if (this.maxelpay.isEnabled()) out.push('maxelpay');
-    return out;
-  }
-
-  async createTopupOrder(
-    telegramId: string,
-    amount: number,
-    gatewayHint?: 'riopay' | 'maxelpay',
-  ): Promise<{ ok: boolean; paymentLink?: string; orderId?: string; error?: string }> {
-    const riopayOk = this.riopay.isEnabled();
-    const maxelpayOk = this.maxelpay.isEnabled();
-
-    let gateway: typeof this.riopay | typeof this.maxelpay | null = null;
-    if (gatewayHint === 'riopay' && riopayOk) gateway = this.riopay;
-    else if (gatewayHint === 'maxelpay' && maxelpayOk) gateway = this.maxelpay;
-    else if (maxelpayOk) gateway = this.maxelpay;
-    else if (riopayOk) gateway = this.riopay;
-
-    if (!gateway) {
+  async createTopupOrder(telegramId: string, amount: number): Promise<{ ok: boolean; paymentLink?: string; orderId?: string; error?: string }> {
+    if (!this.riopay.isEnabled()) {
       return { ok: false, error: 'Пополнение через платёжную систему временно недоступно' };
     }
     const user = await this.users.findByTelegramId(telegramId);
@@ -247,7 +225,7 @@ export class BotApiService {
       return { ok: false, error: 'Пользователь не найден. Отправьте /start' };
     }
     try {
-      const { paymentLink, orderId } = await gateway.createOrder(user.id, Math.round(amount));
+      const { paymentLink, orderId } = await this.riopay.createOrder(user.id, Math.round(amount));
       return { ok: true, paymentLink, orderId };
     } catch (e) {
       const msg = e instanceof BadRequestException ? e.message : 'Не удалось создать платёж';

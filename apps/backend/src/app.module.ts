@@ -19,8 +19,6 @@ import { TelegramModule } from './telegram/telegram.module';
 import { BroadcastModule } from './broadcast/broadcast.module';
 import { BotTextsModule } from './bot-texts/bot-texts.module';
 import { RioPayModule } from './riopay/riopay.module';
-import { MaxelPayModule } from './maxelpay/maxelpay.module';
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -60,7 +58,6 @@ import { MaxelPayModule } from './maxelpay/maxelpay.module';
     BroadcastModule,
     BotTextsModule,
     RioPayModule,
-    MaxelPayModule,
   ],
 })
 export class AppModule {}

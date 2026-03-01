@@ -47,49 +47,20 @@ const TOPUP_MAX = 5000;
 
 export async function handleTopup(ctx: Context) {
   if ('callback_query' in ctx.update) await ctx.answerCbQuery();
-  const topupRes = await api('/topup/enabled');
-  const topupData = topupRes.ok ? ((await topupRes.json()) as { enabled?: boolean; gateways?: string[] }) : {};
-  const gateways = (topupData.gateways ?? []) as ('riopay' | 'maxelpay')[];
-
-  const buttons: { text: string; callback_data: string }[][] = [];
-  if (gateways.includes('riopay')) {
-    buttons.push([{ text: '🏦 СПБ (Сбербанк, Т-банк и тд.)', callback_data: 'topup_gateway_riopay' }]);
-  }
-  if (gateways.includes('maxelpay')) {
-    buttons.push([{ text: '₿ Криптовалютой (BTC, ETH, USDT, USDC, BNB)', callback_data: 'topup_gateway_maxelpay' }]);
-  }
-
-  if (buttons.length === 0) {
-    await ctx.reply(getText('topup_disabled'));
-    return;
-  }
-
-  await ctx.reply(getText('topup_choose_method'), {
-    reply_markup: { inline_keyboard: buttons },
-  });
-}
-
-function showAmountSelection(ctx: Context, gateway?: 'riopay' | 'maxelpay') {
-  const suffix = gateway ? `_${gateway}` : '';
   const buttons = [
-    ...TOPUP_AMOUNTS.map((a) => [{ text: `${a} ₽`, callback_data: `topup_amount_${a}${suffix}` }]),
-    [{ text: '✏️ Другая сумма', callback_data: `topup_custom${suffix}` }],
+    ...TOPUP_AMOUNTS.map((a) => [{ text: `${a} ₽`, callback_data: `topup_amount_${a}` }]),
+    [{ text: '✏️ Другая сумма', callback_data: 'topup_custom' }],
   ];
-  ctx.reply(getText('topup_choose_amount'), {
+  await ctx.reply(getText('topup_choose_amount'), {
     reply_markup: { inline_keyboard: buttons },
   });
 }
 
-export async function handleTopupGateway(ctx: Context, gateway: 'riopay' | 'maxelpay') {
-  if ('callback_query' in ctx.update) await ctx.answerCbQuery();
-  showAmountSelection(ctx, gateway);
-}
-
-export async function handleTopupCustom(ctx: Context, gateway?: 'riopay' | 'maxelpay') {
+export async function handleTopupCustom(ctx: Context) {
   if ('callback_query' in ctx.update) await ctx.answerCbQuery();
   const { setWaiting } = await import('../state');
   const telegramId = String(ctx.from?.id);
-  setWaiting(telegramId, 'topup_amount', gateway);
+  setWaiting(telegramId, 'topup_amount');
   await ctx.reply(getText('topup_enter_amount'), {
     reply_markup: {
       inline_keyboard: [[{ text: '❌ Отмена', callback_data: 'topup_cancel' }]],
@@ -112,7 +83,7 @@ export function validateTopupAmount(amount: number): { ok: boolean; error?: stri
   return { ok: true };
 }
 
-export async function handleTopupAmount(ctx: Context, amount: number, gateway?: 'riopay' | 'maxelpay') {
+export async function handleTopupAmount(ctx: Context, amount: number) {
   if ('callback_query' in ctx.update) await ctx.answerCbQuery();
   const telegramId = String(ctx.from?.id);
   const chatId = ctx.chat?.id;
@@ -120,15 +91,9 @@ export async function handleTopupAmount(ctx: Context, amount: number, gateway?: 
   if (chatId) await ctx.telegram.sendChatAction(chatId, 'typing');
   const loadingMsg = await ctx.reply(getText('topup_creating'));
 
-  const body: { telegramId: string; amount: number; gateway?: 'riopay' | 'maxelpay' } = {
-    telegramId,
-    amount,
-  };
-  if (gateway) body.gateway = gateway;
-
   const res = await api('/topup', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ telegramId, amount }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;

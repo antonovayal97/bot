@@ -29,7 +29,6 @@ model User {
   balanceTopUps        BalanceTopUp[]
   balanceTopUpsRelated BalanceTopUp[] @relation("BalanceTopUpRelatedUser")
   riopayOrders         RioPayOrder[]
-  maxelPayOrders       MaxelPayOrder[]
   assignedNodeId       String?
   assignedNode         Node?          @relation(fields: [assignedNodeId], references: [id])
 }
@@ -123,22 +122,6 @@ model RioPayOrder {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([externalId])
-  @@index([userId])
-}
-
-model MaxelPayOrder {
-  id              String   @id @default(cuid())
-  userId          String
-  orderId         String   @unique // orderId для MaxelPay API (уникальный)
-  sessionId       String?  // sessionId от MaxelPay
-  amount          Decimal  @db.Decimal(10, 2)
-  status          String   @default("pending") // pending, completed, failed, expired
-  createdAt       DateTime @default(now())
-  completedAt     DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([orderId])
   @@index([userId])
 }
 

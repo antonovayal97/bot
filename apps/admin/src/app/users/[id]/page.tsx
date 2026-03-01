@@ -24,7 +24,6 @@ const BALANCE_TOP_UP_SOURCE_LABELS: Record<string, string> = {
   referral_bonus: 'Реферальный бонус',
   payment_gateway: 'Платёжный шлюз',
   riopay: 'RioPay',
-  maxelpay: 'MaxelPay',
   welcome_bonus: 'Приветственный бонус',
 };
 
