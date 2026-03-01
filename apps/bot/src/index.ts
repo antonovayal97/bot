@@ -15,6 +15,7 @@ import {
   handleTopup,
   handleTopupAmount,
   handleTopupCustom,
+  handleTopupGateway,
   handleTopupCancel,
   validateTopupAmount,
 } from './handlers/renew';
@@ -54,11 +55,19 @@ bot.action(/^config_qr_(.+)$/, (ctx) => {
 });
 bot.action('renew', handleRenew);
 bot.action('topup', handleTopup);
-bot.action('topup_custom', handleTopupCustom);
+bot.action('topup_gateway_riopay', (ctx) => handleTopupGateway(ctx, 'riopay'));
+bot.action('topup_gateway_maxelpay', (ctx) => handleTopupGateway(ctx, 'maxelpay'));
+bot.action(/^topup_custom(_riopay|_maxelpay)?$/, (ctx) => {
+  const g = ctx.match[1];
+  const gateway = g === '_riopay' ? 'riopay' : g === '_maxelpay' ? 'maxelpay' : undefined;
+  return handleTopupCustom(ctx, gateway);
+});
 bot.action('topup_cancel', handleTopupCancel);
-bot.action(/^topup_amount_(\d+)$/, (ctx) => {
+bot.action(/^topup_amount_(\d+)(_riopay|_maxelpay)?$/, (ctx) => {
   const amount = parseInt(ctx.match[1], 10);
-  return handleTopupAmount(ctx, amount);
+  const g = ctx.match[2];
+  const gateway = g === '_riopay' ? 'riopay' : g === '_maxelpay' ? 'maxelpay' : undefined;
+  return handleTopupAmount(ctx, amount, gateway);
 });
 bot.action('renew_buy', handleRenewBuy);
 bot.action('renew_extend', handleRenewExtend);
@@ -98,8 +107,8 @@ bot.on('message', async (ctx) => {
   const text = (ctx.message as { text?: string })?.text;
   if (!text || text.startsWith('/')) return;
   const telegramId = String(ctx.from?.id);
-  const waiting = getAndClearWaiting(telegramId);
-  if (waiting === 'topup_amount') {
+  const waitingData = getAndClearWaiting(telegramId);
+  if (waitingData?.state === 'topup_amount') {
     const cancelled = /^(отмена|cancel|выход)$/i.test(text.trim());
     if (cancelled) {
       return ctx.reply(getText('topup_cancelled'));
@@ -108,10 +117,10 @@ bot.on('message', async (ctx) => {
     const valid = validateTopupAmount(amount);
     if (!valid.ok) {
       const { setWaiting } = await import('./state');
-      setWaiting(telegramId, 'topup_amount');
+      setWaiting(telegramId, 'topup_amount', waitingData.gateway);
       return ctx.reply(valid.error ?? 'Сумма должна быть от 50 до 5000 ₽. Введите число:');
     }
-    return handleTopupAmount(ctx, amount);
+    return handleTopupAmount(ctx, amount, waitingData.gateway);
   }
   switch (text) {
     case REPLY_KEYS.MENU:

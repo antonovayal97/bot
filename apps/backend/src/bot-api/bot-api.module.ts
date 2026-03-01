@@ -9,6 +9,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { SettingsModule } from '../settings/settings.module';
 import { BotTextsModule } from '../bot-texts/bot-texts.module';
 import { RioPayModule } from '../riopay/riopay.module';
+import { MaxelPayModule } from '../maxelpay/maxelpay.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RioPayModule } from '../riopay/riopay.module';
     SettingsModule,
     BotTextsModule,
     RioPayModule,
+    MaxelPayModule,
   ],
   controllers: [BotApiController],
   providers: [BotApiService],
